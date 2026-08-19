@@ -1,0 +1,170 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Console palette. Cool near-black base, violet for anything interactive,
+  market green/red reserved strictly for price direction.
+*/
+:root {
+  --ink: #07090c;
+  --panel: #0e1319;
+  --panel-raised: #121821;
+  --hairline: #1b242f;
+  --ink-text: #e9edf3;
+  --ink-muted: #78859b;
+  --violet: #7b61ff;
+  --violet-dim: #2a2350;
+  --up: #16c784;
+  --down: #f04452;
+  --amber: #f2b441;
+
+  --radius: 0.5rem;
+
+  --background: var(--ink);
+  --foreground: var(--ink-text);
+  --card: var(--panel);
+  --card-foreground: var(--ink-text);
+  --popover: var(--panel-raised);
+  --popover-foreground: var(--ink-text);
+  --primary: var(--violet);
+  --primary-foreground: #0a0812;
+  --secondary: #161d26;
+  --secondary-foreground: var(--ink-text);
+  --muted: #141a22;
+  --muted-foreground: var(--ink-muted);
+  --accent: #182029;
+  --accent-foreground: var(--ink-text);
+  --destructive: var(--down);
+  --destructive-foreground: #14060a;
+  --border: var(--hairline);
+  --input: #1e2833;
+  --ring: var(--violet);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-panel: var(--panel);
+  --color-panel-raised: var(--panel-raised);
+  --color-hairline: var(--hairline);
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --color-amber: var(--amber);
+  --color-violet: var(--violet);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--violet-dim);
+    color: var(--ink-text);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--violet);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /* Prices and timestamps must never reflow while they tick. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+
+  /* Faint grid, the paper this console is printed on. */
+  .grid-field {
+    background-image:
+      linear-gradient(to right, rgba(123, 97, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(123, 97, 255, 0.05) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  .rise {
+    animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Scrollbars that belong to the console rather than the OS. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--ink);
+}
+::-webkit-scrollbar-thumb {
+  background: #1f2a37;
+  border-radius: 999px;
+  border: 3px solid var(--ink);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2b3a4c;
+}

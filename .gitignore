@@ -1,0 +1,20 @@
+node_modules/
+dist/
+__pycache__/
+*.py[oc]
+.venv/
+
+# The SQLite file holds the Upstox API key, secret and access token.
+# It is created on first run and must never be published.
+*.db
+*.db-wal
+*.db-shm
+
+# Vendored agent skills copied out of marketcalls/openalgo-charts, which is
+# Apache-2.0. Install them instead:
+#   npx skills add https://github.com/marketcalls/openalgo-charts
+.claude/skills/openalgo-charts/
+.claude/skills/openalgo-chart-*/
+
+.DS_Store
+Thumbs.db
