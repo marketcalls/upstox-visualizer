@@ -121,6 +121,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <nav className="flex items-center gap-6">
             <Tab to="/">Setup</Tab>
             <Tab to="/chart">Chart</Tab>
+            <Tab to="/straddle">Straddle</Tab>
           </nav>
 
           <div className="ml-auto flex items-center gap-2">

@@ -11,5 +11,15 @@ dependencies = [
     "pydantic>=2.9.0",
 ]
 
+# Test-only. Never installed into the app runtime, which stays on the four
+# dependencies above.
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
 [tool.uv]
 package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

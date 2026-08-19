@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import DEV_FRONTEND_URL, FRONTEND_DIST
 from .db import init_db
-from .routers import auth, market, settings
+from .routers import auth, market, settings, straddle
 from .upstox import UpstoxError
 
 
@@ -43,6 +43,7 @@ async def upstox_error_handler(_, exc: UpstoxError) -> JSONResponse:
 app.include_router(settings.router)
 app.include_router(auth.router)
 app.include_router(market.router)
+app.include_router(straddle.router)
 
 
 @app.get("/api/health")
