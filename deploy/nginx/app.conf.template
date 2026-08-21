@@ -41,7 +41,10 @@ server {
     add_header X-Frame-Options           "DENY" always;
     add_header Referrer-Policy           "strict-origin-when-cross-origin" always;
 
-    auth_basic           "Upstox Visualizer";
+    # APP_AUTH_REALM is either a bare realm name, which turns the password on,
+    # or the literal off, which turns it off. Not quoted: nginx reads a quoted
+    # "off" as a realm named off and would keep prompting.
+    auth_basic           ${APP_AUTH_REALM};
     auth_basic_user_file /etc/nginx/.htpasswd;
 
     server_tokens off;

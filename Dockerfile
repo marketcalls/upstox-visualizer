@@ -55,9 +55,12 @@ COPY --from=frontend /build/dist /app/frontend/dist
 
 # Unprivileged runtime user. /app/data is created and chowned here so a fresh
 # named volume inherits the ownership when Docker seeds it.
+# 700 on the data directory: it holds the SQLite file with the API key,
+# secret and access token in clear text. db.py tightens the file to 600.
 RUN useradd --create-home --uid 10001 upstox \
     && mkdir -p /app/data \
-    && chown -R upstox:upstox /app
+    && chown -R upstox:upstox /app \
+    && chmod 700 /app/data
 USER upstox
 
 EXPOSE 8000

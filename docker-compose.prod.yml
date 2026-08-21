@@ -25,6 +25,9 @@ services:
       # Restrict envsubst to the APP_ prefix, otherwise it would eat nginx's
       # own $host, $scheme and $request_uri while rendering the template.
       NGINX_ENVSUBST_FILTER: "APP_"
+      # Bare realm name = password required. "off" = open to anyone who has the
+      # URL. Defaults to on, so forgetting to set it cannot expose the app.
+      APP_AUTH_REALM: ${APP_AUTH_REALM:-Restricted}
     volumes:
       - ./deploy/nginx/app.conf.template:/etc/nginx/templates/app.conf.template:ro
       - ./deploy/nginx/99-app-init.sh:/docker-entrypoint.d/99-app-init.sh:ro

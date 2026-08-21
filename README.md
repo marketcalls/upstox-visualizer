@@ -221,11 +221,12 @@ as in step 3 below.
 | Control | Where |
 | --- | --- |
 | TLS, auto-renewed | certbot over ACME, nginx 308s HTTP to HTTPS |
-| Password on every route | nginx `auth_basic`, bcrypt htpasswd |
+| Password on every route | nginx `auth_basic`, bcrypt htpasswd, switchable with `APP_AUTH_REALM` |
 | App unreachable directly | No published port, internal network only |
 | Read-only root filesystem | `read_only: true`, only `/app/data` and a tmpfs `/tmp` are writable |
 | No privilege escalation | `no-new-privileges`, `cap_drop: ALL`, uid 10001 |
-| Resource ceiling | 1.5 CPU, 768 MB |
+| Resource ceiling | `APP_CPUS` / `APP_MEMORY`, default 1 CPU and 768 MB |
+| Database permissions | dir 700, file 600, set by `db.py` on every start |
 | Log rotation | json-file, 10 MB x 5 per container |
 | Restart gating | nginx waits on the app's healthcheck |
 | Upstream re-resolution | nginx resolves `app` per request, so recreating it does not strand 502s |

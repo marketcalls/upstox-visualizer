@@ -1,5 +1,6 @@
 """SQLite storage: broker credentials, the active session token and a candle cache."""
 
+import os
 import sqlite3
 from contextlib import contextmanager
 from typing import Iterator
@@ -130,6 +131,22 @@ def session() -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+def _restrict_permissions() -> None:
+    """Keep the database readable only by the account that runs the app.
+
+    It stores the Upstox API key, API secret and access token in clear text,
+    and SQLite creates a new file 0644. The WAL and shared-memory sidecars
+    inherit the database file's mode, so tightening this one path covers all
+    three. Best effort: on Windows os.chmod only moves the read-only bit, and
+    some mounted filesystems reject the call outright.
+    """
+    try:
+        os.chmod(DB_PATH.parent, 0o700)
+        os.chmod(DB_PATH, 0o600)
+    except OSError:
+        pass
+
+
 def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with session() as conn:
@@ -140,3 +157,4 @@ def init_db() -> None:
                ON CONFLICT(symbol) DO NOTHING""",
             SEED_INSTRUMENTS,
         )
+    _restrict_permissions()
