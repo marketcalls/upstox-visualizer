@@ -40,12 +40,29 @@ APP_USER=$(val APP_USER)
 # Let's Encrypt allows five validation failures per hostname per hour. Pointing
 # at the wrong address is the usual cause, so check before spending an attempt.
 
+# Ask a public resolver over DNS-over-HTTPS rather than this host's stub
+# resolver. What matters is the answer Let's Encrypt gets, and a server's own
+# upstream resolver can sit on a stale record for the whole TTL after a change,
+# which would fail this check while issuance would actually have succeeded.
+resolve_public() {
+    curl -s --max-time 15 -H 'accept: application/dns-json' \
+        "https://cloudflare-dns.com/dns-query?name=$1&type=A" 2>/dev/null \
+        | tr '{},' '\n\n\n' \
+        | sed -n 's/.*"data":"\([0-9][0-9.]*\)".*/\1/p' \
+        | sort -u
+}
+
 echo "==> checking DNS for $APP_DOMAIN"
 MY_IP=$(curl -4 -s --max-time 15 https://ifconfig.me || true)
-RESOLVED=$(getent ahostsv4 "$APP_DOMAIN" | awk '{print $1}' | sort -u | tr '\n' ' ')
+RESOLVED=$(resolve_public "$APP_DOMAIN" | tr '\n' ' ')
+SOURCE="public resolver"
+if [ -z "$(echo "$RESOLVED" | tr -d ' ')" ]; then
+    RESOLVED=$(getent ahostsv4 "$APP_DOMAIN" | awk '{print $1}' | sort -u | tr '\n' ' ')
+    SOURCE="local resolver (DoH lookup failed)"
+fi
 
 echo "    this server: ${MY_IP:-unknown}"
-echo "    resolves to: ${RESOLVED:-nothing}"
+echo "    resolves to: ${RESOLVED:-nothing}  [via $SOURCE]"
 
 if [ -z "$MY_IP" ]; then
     echo "warning: could not determine this server's public IP, skipping the check" >&2
