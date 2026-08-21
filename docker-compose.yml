@@ -1,0 +1,22 @@
+# docker compose up -d --build  ->  http://127.0.0.1:8000
+
+services:
+  upstox-visualizer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: upstox-visualizer:latest
+    container_name: upstox-visualizer
+    ports:
+      # Bound to loopback on purpose. The Upstox redirect URL is a loopback URL,
+      # and the database behind this port holds the API key, secret and access
+      # token in plain text, so the port must not be exposed on the LAN.
+      - "127.0.0.1:8000:8000"
+    volumes:
+      # Credentials, the OAuth token, the instrument master and the candle cache.
+      # Survives a rebuild; delete the volume to start over from the setup screen.
+      - upstox-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  upstox-data:

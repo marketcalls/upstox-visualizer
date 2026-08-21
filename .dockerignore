@@ -1,0 +1,36 @@
+# Build context hygiene. The image builds the frontend from source and installs
+# the backend from uv.lock, so nothing generated on the host belongs in here.
+
+.git/
+.gitignore
+.claude/
+docs/
+*.md
+
+# The SQLite file holds the Upstox API key, secret and access token. Never bake
+# it into an image layer.
+*.db
+*.db-wal
+*.db-shm
+
+backend/.venv/
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/tests/
+**/__pycache__/
+*.py[oc]
+
+frontend/node_modules/
+frontend/dist/
+
+Dockerfile
+.dockerignore
+docker-compose.yml
+start.ps1
+.DS_Store
+Thumbs.db
+
+.env
+.env.example
+deploy/
+docker-compose.prod.yml

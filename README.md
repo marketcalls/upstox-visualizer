@@ -110,6 +110,150 @@ parameter.
 
 `start.ps1` does the build-then-serve sequence in one step.
 
+### Or run it in Docker
+
+One container: the frontend is built during the image build and served by the
+same FastAPI process, so the port and the redirect URL are identical to a local
+run and nothing has to be re-registered on Upstox.
+
+```bash
+docker compose up -d --build
+```
+
+Then open <http://127.0.0.1:8000>, same as above.
+
+| Detail | Value |
+| --- | --- |
+| Published port | `127.0.0.1:8000` only, never the LAN |
+| Database | Named volume `upstox-data`, mounted at `/app/data` |
+| DB path override | `UPSTOX_DB_PATH`, defaults to `backend/upstox.db` off Docker |
+| User | Unprivileged `upstox`, uid 10001 |
+| Health | `GET /api/health`, wired to a Docker healthcheck |
+
+The volume is what makes a rebuild safe: the API key, secret, access token,
+instrument master and candle cache live there, not in the image. To start over,
+`docker compose down -v` and set up again.
+
+Logs and lifecycle:
+
+```bash
+docker compose logs -f
+docker compose restart
+docker compose down
+```
+
+Rebuilding after a code change is `docker compose up -d --build`. The image
+pins nothing to the host, so `backend/.venv` and `frontend/node_modules` are
+not needed to run this way.
+
+## Deploy to a server
+
+`docker-compose.prod.yml` is a second, self-contained stack: Caddy terminates
+TLS and enforces a password, and the app publishes no port at all. The local
+`docker-compose.yml` is untouched and keeps working.
+
+**Read this first.** The app has no user accounts. Every route, including
+`POST /api/settings`, is open to anything that can reach port 8000, and the
+database behind it holds your API key, secret and access token in plain text.
+The reverse proxy is not decoration, it is the access control. Never publish
+the app container's port next to this stack.
+
+### Before you start
+
+- A domain whose A or AAAA record already points at the server. Caddy issues
+  the certificate over ACME, which needs the name to resolve before first boot.
+- Ports 80 and 443 open. Both, not just 443: the ACME challenge uses 80.
+- Docker Engine with the Compose plugin. The image builds on the server, which
+  needs roughly 1 GB of free RAM for the npm build.
+
+### Deploy
+
+```bash
+git clone <your-repo-url> upstox-visualizer
+cd upstox-visualizer
+cp .env.example .env
+```
+
+Generate the front door password hash. The `sed` doubles every `$`, which is
+what compose needs, so paste the output verbatim into `APP_PASSWORD_HASH`:
+
+```bash
+docker run --rm caddy:2-alpine caddy hash-password --plaintext 'your-password' | sed 's/\$/$$/g'
+```
+
+Fill in `APP_DOMAIN`, `ACME_EMAIL` and `APP_USER`, then:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+### Register the redirect URL
+
+The one on the Upstox developer app has to change, because the loopback URL
+from the local setup no longer describes where the browser lands:
+
+```
+https://<your-domain>/api/auth/callback
+```
+
+`UPSTOX_PUBLIC_URL` is derived from `APP_DOMAIN` by the compose file, so the
+setup screen already suggests exactly this string. It must match byte for byte.
+
+Then browse to `https://<your-domain>`, pass the basic auth prompt, and connect
+as in step 3 below.
+
+### What the stack does
+
+| Control | Where |
+| --- | --- |
+| TLS, auto-renewed | Caddy over ACME, HTTP 308s to HTTPS |
+| Password on every route | Caddy `basic_auth`, bcrypt |
+| App unreachable directly | No published port, internal network only |
+| Read-only root filesystem | `read_only: true`, only `/app/data` and a tmpfs `/tmp` are writable |
+| No privilege escalation | `no-new-privileges`, `cap_drop: ALL`, uid 10001 |
+| Resource ceiling | 1.5 CPU, 768 MB |
+| Log rotation | json-file, 10 MB x 5 per container |
+| Restart gating | Caddy waits on the app's healthcheck |
+
+### Operations
+
+```bash
+docker compose -f docker-compose.prod.yml logs -f
+docker compose -f docker-compose.prod.yml ps
+```
+
+Update to the latest commit:
+
+```bash
+git pull && docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Back up the database. Use SQLite's own backup rather than copying the file,
+which is in WAL mode and will tear under a plain `cp`:
+
+```bash
+DC="docker compose -f docker-compose.prod.yml"
+
+$DC exec -T app python -c "import sqlite3; src=sqlite3.connect('/app/data/upstox.db'); dst=sqlite3.connect('/app/data/backup.db'); src.backup(dst); dst.close(); src.close()"
+$DC cp app:/app/data/backup.db "./upstox-backup-$(date +%F).db"
+$DC exec -T app rm /app/data/backup.db
+```
+
+That backup contains your API secret and access token in plain text. Treat it
+like a key file.
+
+### Still on you
+
+- **A token expires every morning.** Upstox invalidates it at 3:30 AM IST, so
+  somebody has to open the site and log in again each trading day. Nothing here
+  automates that, and Upstox does not offer a refresh token for this flow.
+- **Secrets are unencrypted at rest.** Anyone with root on the server, or with
+  access to the `upstox-data` volume, can read your API secret and token.
+- **No rate limiting.** Caddy ships none in the standard image. Requests are
+  bounded only by the password.
+- **One instance only.** SQLite plus in-process background tasks means a single
+  container. Do not scale `app` past one replica.
+
 ## 3. Connect
 
 1. Go to **Setup**, paste the API key and secret, save.

@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .config import DEV_FRONTEND_URL, FRONTEND_DIST
+from .config import CORS_ORIGINS, FRONTEND_DIST
 from .db import init_db
 from .routers import auth, market, settings, straddle
 from .upstox import UpstoxError
@@ -28,7 +28,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[DEV_FRONTEND_URL, "http://localhost:5173"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

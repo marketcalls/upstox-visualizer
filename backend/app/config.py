@@ -1,12 +1,16 @@
 """Static configuration. Everything user-specific lives in SQLite, not in a .env file."""
 
+import os
 from datetime import timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 APP_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = APP_DIR.parent
 PROJECT_DIR = BACKEND_DIR.parent
-DB_PATH = BACKEND_DIR / "upstox.db"
+# Next to the code by default. UPSTOX_DB_PATH moves it onto a mounted volume so a
+# container can be rebuilt without losing the credentials, token and candle cache.
+DB_PATH = Path(os.environ.get("UPSTOX_DB_PATH") or BACKEND_DIR / "upstox.db")
 FRONTEND_DIST = PROJECT_DIR / "frontend" / "dist"
 
 # Where the browser is sent after the OAuth handshake completes. When the built
@@ -16,7 +20,43 @@ DEV_FRONTEND_URL = "http://127.0.0.1:5173"
 HOST = "127.0.0.1"
 PORT = 8000
 BACKEND_URL = f"http://{HOST}:{PORT}"
-DEFAULT_REDIRECT_URI = f"{BACKEND_URL}/api/auth/callback"
+
+
+def _public_origin() -> str:
+    """The origin the browser actually reaches this app on.
+
+    Loopback on a laptop. Behind a TLS reverse proxy it is the public origin,
+    and three things have to agree on it: the redirect URL registered with
+    Upstox, the suggested value on the setup screen, and the origin the OAuth
+    callback is allowed to bounce back to. Set UPSTOX_PUBLIC_URL to a scheme
+    and host with no path, e.g. https://charts.example.com
+    """
+    raw = os.environ.get("UPSTOX_PUBLIC_URL", "").strip().rstrip("/")
+    if not raw:
+        return BACKEND_URL
+    parts = urlsplit(raw)
+    if parts.scheme not in {"http", "https"} or not parts.netloc or parts.path:
+        raise ValueError(
+            "UPSTOX_PUBLIC_URL must be a scheme and host with no path, "
+            f"for example https://charts.example.com (got {raw!r})"
+        )
+    return f"{parts.scheme}://{parts.netloc.lower()}"
+
+
+PUBLIC_ORIGIN = _public_origin()
+
+# True once the app is served from somewhere other than its own loopback
+# address, which is the only reliable signal available that this is a real
+# deployment rather than a laptop.
+IS_PROXIED = PUBLIC_ORIGIN != BACKEND_URL
+
+DEFAULT_REDIRECT_URI = f"{PUBLIC_ORIGIN}/api/auth/callback"
+
+# The built SPA is same-origin, so it needs no CORS grant at all. The Vite dev
+# server is the only cross-origin caller worth allowing, and allowing a
+# localhost origin with credentials on a public deployment buys nothing and
+# widens the surface, so the grant disappears as soon as a public URL is set.
+CORS_ORIGINS: list[str] = [] if IS_PROXIED else [DEV_FRONTEND_URL, "http://localhost:5173"]
 
 UPSTOX_AUTH_DIALOG = "https://api.upstox.com/v2/login/authorization/dialog"
 UPSTOX_TOKEN_URL = "https://api.upstox.com/v2/login/authorization/token"

@@ -11,7 +11,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from .. import store, upstox
-from ..config import BACKEND_URL, DEV_FRONTEND_URL, FRONTEND_DIST
+from ..config import DEV_FRONTEND_URL, FRONTEND_DIST, PUBLIC_ORIGIN
 from ..schemas import AuthStatus, LoginUrl
 from . import market
 
@@ -22,16 +22,25 @@ LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 def _default_origin() -> str:
     """Without a hint, prefer the built frontend, otherwise the Vite dev server."""
-    return BACKEND_URL if FRONTEND_DIST.exists() else DEV_FRONTEND_URL
+    return PUBLIC_ORIGIN if FRONTEND_DIST.exists() else DEV_FRONTEND_URL
 
 
 def _safe_origin(candidate: str | None) -> str:
-    """Only ever redirect back to a local origin."""
+    """Only ever redirect back to an origin this deployment owns.
+
+    The callback bounces the browser to whatever this returns, so it is the
+    open-redirect guard: an allowlist, never a pattern match. Loopback covers
+    the laptop and an SSH tunnel; PUBLIC_ORIGIN covers a proxied deployment and
+    is exact, so a lookalike host cannot pass.
+    """
     if not candidate:
         return _default_origin()
     parsed = urlparse(candidate)
-    if parsed.scheme in {"http", "https"} and parsed.hostname in LOOPBACK_HOSTS:
-        return f"{parsed.scheme}://{parsed.netloc}"
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return _default_origin()
+    origin = f"{parsed.scheme}://{parsed.netloc.lower()}"
+    if parsed.hostname in LOOPBACK_HOSTS or origin == PUBLIC_ORIGIN:
+        return origin
     return _default_origin()
 
 

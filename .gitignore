@@ -18,3 +18,9 @@ __pycache__/
 
 .DS_Store
 Thumbs.db
+
+# Production secrets: the front door password hash and domain.
+.env
+
+# Credentials file kept alongside this project.
+.cred
