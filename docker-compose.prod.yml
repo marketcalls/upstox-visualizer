@@ -104,10 +104,12 @@ services:
     deploy:
       resources:
         limits:
+          # Docker rejects a CPU limit above the host's core count, so this has
+          # to suit a 1 vCPU VPS by default. Raise APP_CPUS on a bigger box.
+          cpus: ${APP_CPUS:-1.0}
           # Headroom for the instrument master download, which parses ~124k
           # rows in memory and rebuilds the table in one transaction.
-          cpus: "1.5"
-          memory: 768M
+          memory: ${APP_MEMORY:-768M}
 
     logging:
       driver: json-file
