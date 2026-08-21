@@ -88,8 +88,9 @@ if [ -f deploy/htpasswd ]; then
 else
     echo "==> generating front door credentials"
     APP_PASSWORD=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 24)
-    docker run --rm httpd:2.4-alpine htpasswd -nbB -C 12 "$APP_USER" "$APP_PASSWORD" \
-        | head -1 > deploy/htpasswd
+    # awk rather than head: htpasswd emits a trailing blank line, and head
+    # closes the pipe early enough to print "broken pipe" on a good run.
+    docker run --rm httpd:2.4-alpine htpasswd -nbB -C 12 "$APP_USER" "$APP_PASSWORD" | awk 'NR==1' > deploy/htpasswd
     # nginx workers run as an unprivileged user and must be able to read this,
     # so 600 owned by root makes every authenticated request fail with a 500.
     # The file holds a bcrypt hash, not a recoverable password.
