@@ -230,7 +230,7 @@ as in step 3 below.
 | Log rotation | json-file, 10 MB x 5 per container |
 | Restart gating | nginx waits on the app's healthcheck |
 | Upstream re-resolution | nginx resolves `app` per request, so recreating it does not strand 502s |
-| Port 80 exposure | `HTTP_BIND_ADDR`, set to `127.0.0.1` to hide it when a CDN fronts the origin on 443 |
+| Port 80 exposure | `HTTP_BIND_ADDR`, but keep it public: HTTP-01 renewal needs port 80 even behind a CDN |
 
 ### Operations
 
