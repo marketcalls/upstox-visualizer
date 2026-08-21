@@ -112,7 +112,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <CandleMark />
             <div className="leading-none">
               <div className="font-display text-[15px] font-semibold tracking-tight">
-                Upstox Console
+                Upstox Visualizer
               </div>
               <div className="eyebrow mt-0.5 text-[9px]">NSE · Equity</div>
             </div>
