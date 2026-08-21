@@ -27,6 +27,7 @@ services:
       NGINX_ENVSUBST_FILTER: "APP_"
     volumes:
       - ./deploy/nginx/app.conf.template:/etc/nginx/templates/app.conf.template:ro
+      - ./deploy/nginx/99-app-init.sh:/docker-entrypoint.d/99-app-init.sh:ro
       # Generated on the server by deploy/bootstrap-tls.sh, never committed.
       - ./deploy/htpasswd:/etc/nginx/.htpasswd:ro
       - letsencrypt:/etc/letsencrypt:ro
@@ -34,10 +35,6 @@ services:
     depends_on:
       app:
         condition: service_healthy
-    # Pick up renewed certificates without a restart. nginx only re-reads a
-    # certificate on reload, so without this a renewal is invisible until the
-    # container bounces and the cert eventually expires in place.
-    command: sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & exec nginx -g 'daemon off;'"
     security_opt:
       - no-new-privileges:true
     logging:
