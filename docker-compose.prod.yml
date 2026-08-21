@@ -18,7 +18,13 @@ services:
     container_name: upstox-nginx
     restart: unless-stopped
     ports:
-      - "80:80"
+      # Port 80 carries the ACME challenge and the redirect to HTTPS, so it has
+      # to face the internet on a direct deployment. Behind a CDN that talks to
+      # the origin over 443, nothing external needs it: set HTTP_BIND_ADDR to
+      # 127.0.0.1 and it stops being reachable from outside while the listener
+      # stays available locally. ufw cannot do this job, because Docker
+      # publishes ports through its own iptables chain and bypasses ufw.
+      - "${HTTP_BIND_ADDR:-0.0.0.0}:80:80"
       - "443:443"
     environment:
       APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN in .env}
