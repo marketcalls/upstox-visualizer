@@ -21,6 +21,7 @@ Thumbs.db
 
 # Production secrets: the front door password hash and domain.
 .env
+deploy/htpasswd
 
 # Credentials file kept alongside this project.
 .cred

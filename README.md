@@ -148,44 +148,58 @@ not needed to run this way.
 
 ## Deploy to a server
 
-`docker-compose.prod.yml` is a second, self-contained stack: Caddy terminates
-TLS and enforces a password, and the app publishes no port at all. The local
-`docker-compose.yml` is untouched and keeps working.
+`docker-compose.prod.yml` is a second, self-contained stack: nginx terminates
+TLS and enforces a password, certbot keeps the Let's Encrypt certificate alive,
+and the app publishes no port at all. The local `docker-compose.yml` is
+untouched and keeps working.
 
 **Read this first.** The app has no user accounts. Every route, including
 `POST /api/settings`, is open to anything that can reach port 8000, and the
 database behind it holds your API key, secret and access token in plain text.
-The reverse proxy is not decoration, it is the access control. Never publish
-the app container's port next to this stack.
+nginx is not decoration, it is the access control. Never publish the app
+container's port next to this stack.
 
 ### Before you start
 
-- A domain whose A or AAAA record already points at the server. Caddy issues
-  the certificate over ACME, which needs the name to resolve before first boot.
+- A domain whose A record points at the server. It must not be proxied behind
+  a CDN while the certificate is issued: Let's Encrypt has to reach this host
+  directly. On Cloudflare that means the grey cloud, "DNS only".
 - Ports 80 and 443 open. Both, not just 443: the ACME challenge uses 80.
-- Docker Engine with the Compose plugin. The image builds on the server, which
-  needs roughly 1 GB of free RAM for the npm build.
+- If the server is IPv4 only, make sure no AAAA record exists for the name.
+  Let's Encrypt prefers IPv6 and will fail against an address nothing answers.
+- Docker Engine with the Compose plugin, and roughly 1 GB of free RAM for the
+  npm build. On a 1 GB box, add swap first.
 
 ### Deploy
 
 ```bash
 git clone <your-repo-url> upstox-visualizer
 cd upstox-visualizer
-cp .env.example .env
+cp .env.example .env          # then set APP_DOMAIN, ACME_EMAIL, APP_USER
 ```
 
-Generate the front door password hash. The `sed` doubles every `$`, which is
-what compose needs, so paste the output verbatim into `APP_PASSWORD_HASH`:
+Issue the certificate and generate the front door login. The script checks DNS
+before spending an attempt, because Let's Encrypt allows only five validation
+failures per hostname per hour:
 
 ```bash
-docker run --rm caddy:2-alpine caddy hash-password --plaintext 'your-password' | sed 's/\$/$$/g'
+./deploy/bootstrap-tls.sh              # or --staging to rehearse
 ```
 
-Fill in `APP_DOMAIN`, `ACME_EMAIL` and `APP_USER`, then:
+It prints the generated password once. Save it. Then bring the stack up:
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
 ```
+
+### Why the bootstrap step exists
+
+nginx will not start without a certificate file, and certbot's webroot method
+needs nginx running to serve the challenge. The script breaks the deadlock by
+issuing the first certificate in standalone mode, with certbot binding port 80
+itself. Every renewal after that goes through the webroot with no downtime:
+the certbot container retries twice a day and nginx reloads every six hours,
+since nginx only re-reads a certificate on reload.
 
 ### Register the redirect URL
 
@@ -206,14 +220,15 @@ as in step 3 below.
 
 | Control | Where |
 | --- | --- |
-| TLS, auto-renewed | Caddy over ACME, HTTP 308s to HTTPS |
-| Password on every route | Caddy `basic_auth`, bcrypt |
+| TLS, auto-renewed | certbot over ACME, nginx 308s HTTP to HTTPS |
+| Password on every route | nginx `auth_basic`, bcrypt htpasswd |
 | App unreachable directly | No published port, internal network only |
 | Read-only root filesystem | `read_only: true`, only `/app/data` and a tmpfs `/tmp` are writable |
 | No privilege escalation | `no-new-privileges`, `cap_drop: ALL`, uid 10001 |
 | Resource ceiling | 1.5 CPU, 768 MB |
 | Log rotation | json-file, 10 MB x 5 per container |
-| Restart gating | Caddy waits on the app's healthcheck |
+| Restart gating | nginx waits on the app's healthcheck |
+| Upstream re-resolution | nginx resolves `app` per request, so recreating it does not strand 502s |
 
 ### Operations
 
@@ -226,6 +241,21 @@ Update to the latest commit:
 
 ```bash
 git pull && docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Check certificate status, or force a renewal:
+
+```bash
+docker compose -f docker-compose.prod.yml run --rm --entrypoint certbot certbot certificates
+docker compose -f docker-compose.prod.yml run --rm --entrypoint certbot certbot renew --webroot -w /var/www/certbot --force-renewal
+docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
+```
+
+Change the front door password:
+
+```bash
+docker run --rm httpd:2.4-alpine htpasswd -nbB USER 'newpassword' > deploy/htpasswd
+docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
 ```
 
 Back up the database. Use SQLite's own backup rather than copying the file,
@@ -249,8 +279,8 @@ like a key file.
   automates that, and Upstox does not offer a refresh token for this flow.
 - **Secrets are unencrypted at rest.** Anyone with root on the server, or with
   access to the `upstox-data` volume, can read your API secret and token.
-- **No rate limiting.** Caddy ships none in the standard image. Requests are
-  bounded only by the password.
+- **No rate limiting.** Requests are bounded only by the password. If you want
+  it, nginx `limit_req` is the place to add it.
 - **One instance only.** SQLite plus in-process background tasks means a single
   container. Do not scale `app` past one replica.
 
